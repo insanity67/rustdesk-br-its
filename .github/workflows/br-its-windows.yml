@@ -22,7 +22,7 @@ env:
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
   VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
   VERSION: "1.5.1"
-  RELEASE_TAG: "br-its-1.5.1"
+  RELEASE_TAG: "br-its-1.5.1-1"
 
 permissions:
   contents: write
@@ -76,8 +76,19 @@ jobs:
                             lambda _: f'pub const RENDEZVOUS_SERVERS: &[&str] = &["{server}"];', src)
           src, n2 = re.subn(r'pub const RS_PUB_KEY: &str = "[^"]*";',
                             lambda _: f'pub const RS_PUB_KEY: &str = "{key}";', src)
-          if n1 != 1 or n2 != 1:
-              sys.exit(f"Could not patch config.rs (servers={n1}, key={n2})")
+          # Prefill the network settings so the UI shows server and key and
+          # does not offer the "set up your own server" hint; users can still change them.
+          defaults = ('RwLock::new(HashMap::from(['
+                      f'("custom-rendezvous-server".to_owned(), "{server}".to_owned()), '
+                      f'("key".to_owned(), "{key}".to_owned())]))')
+          src, n3 = re.subn(r'pub static ref DEFAULT_SETTINGS: RwLock<HashMap<String, String>> = Default::default\(\);',
+                            lambda _: f'pub static ref DEFAULT_SETTINGS: RwLock<HashMap<String, String>> = {defaults};', src)
+          # The update check offers the official RustDesk build, which would drop our server.
+          local_defaults = 'RwLock::new(HashMap::from([("enable-check-update".to_owned(), "N".to_owned())]))'
+          src, n4 = re.subn(r'pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = Default::default\(\);',
+                            lambda _: f'pub static ref DEFAULT_LOCAL_SETTINGS: RwLock<HashMap<String, String>> = {local_defaults};', src)
+          if n1 != 1 or n2 != 1 or n3 != 1 or n4 != 1:
+              sys.exit(f"Could not patch config.rs (servers={n1}, key={n2}, defaults={n3}, local_defaults={n4})")
           open(path, "w", encoding="utf-8").write(src)
           print("config.rs patched")
           EOF
