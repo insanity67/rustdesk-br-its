@@ -299,6 +299,11 @@ async fn start_query_session_count(sender: std::sync::mpsc::Sender<Data>) {
 }
 
 fn load_icon_from_asset() -> Option<image::DynamicImage> {
+    // BR-ITS: the Flutter icon.png carries our branding (app window only);
+    // keep the upstream res/tray-icon.ico for the Windows tray.
+    if cfg!(windows) {
+        return None;
+    }
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
     else {
         return None;
